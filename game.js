@@ -2,7 +2,7 @@ const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
 // Game States
-let gameState = 'MENU'; // 'MENU', 'PLAYING', 'GAMEOVER'
+let gameState = 'MENU'; // 'MENU', 'PLAYING', 'TRANSITION', 'GAMEOVER'
 let gameMode = '';      // 'level' or 'endless' or 'campaign_endless'
 let gameOver = false;
 
@@ -11,6 +11,10 @@ let currentLevel = 1;
 const maxCampaignLevel = 10;
 let distanceToPlanet = 1000; 
 let endlessDistance = 0;     
+
+// Level Break Transition Trackers
+let transitionMessage = '';
+let transitionSubMessage = '';
 
 // High Score Tracking
 let endlessHighScore = localStorage.getItem('spaceDodgerHighScore') ? parseInt(localStorage.getItem('spaceDodgerHighScore')) : 0;
@@ -42,45 +46,65 @@ document.addEventListener('keyup', (e) => {
 
 function startGame(mode) {
     gameMode = mode;
-    gameState = 'PLAYING';
     gameOver = false;
     asteroids = [];
     spawnTimer = 0;
     
-    // Reset player position
+    // Reset ship positioning
     player.x = canvas.width / 2 - 15;
     player.y = canvas.height - 60;
     player.dx = 0;
     
-    // Reset values depending on selected path
-    if (mode === 'level') {
-        currentLevel = 1;
-        distanceToPlanet = 1000; // Base starting distance
-    } else if (mode === 'campaign_endless') {
-        // Continuous level climbing after beating level 10
-        distanceToPlanet = 1000 + (currentLevel * 100);
-    } else if (mode === 'endless') {
-        endlessDistance = 0;
-    }
-    
-    // Hide menus and reset special buttons
+    // Hide menus cleanly
     document.getElementById('mainMenu').style.display = 'none';
     document.getElementById('gameOverMenu').style.display = 'none';
     document.getElementById('campaignEndlessBtn').style.display = 'none';
+
+    if (mode === 'level') {
+        currentLevel = 1;
+        distanceToPlanet = 1000;
+        // Kick off with a "LEVEL 1" countdown break
+        startTransition(`LEVEL ${currentLevel}`, "Get Ready!");
+    } else if (mode === 'campaign_endless') {
+        distanceToPlanet = 1000 + (currentLevel * 100);
+        startTransition(`LEVEL ${currentLevel}`, "Endless Run Continues...");
+    } else if (mode === 'endless') {
+        endlessDistance = 0;
+        gameState = 'PLAYING'; // Endless doesn't need level barriers, jump straight in
+    }
 }
 
-function nextLevel() {
+function startTransition(mainText, subText) {
+    gameState = 'TRANSITION';
+    transitionMessage = mainText;
+    transitionSubMessage = subText;
+    player.dx = 0; // Freeze ship drift during pauses
+
+    // Pause action for 2.5 seconds, then drop player back into real-time gameplay
+    setTimeout(() => {
+        if (gameState === 'TRANSITION') {
+            gameState = 'PLAYING';
+        }
+    }, 2500);
+}
+
+function handleLevelClear() {
+    // Check if campaign is entirely cleared
+    if (gameMode === 'level' && currentLevel >= maxCampaignLevel) {
+        showGameOverScreen(true);
+        return;
+    }
+
     currentLevel++;
     asteroids = [];
     spawnTimer = 0;
-    
-    // Grow length requirement by 100m for each progressive level
     distanceToPlanet = 1000 + (currentLevel * 100);
     
-    // Put spaceship back at starting position safely
     player.x = canvas.width / 2 - 15;
     player.y = canvas.height - 60;
-    player.dx = 0;
+
+    // Transition showing "YOU REACHED THE PLANET!" followed by the next level announcement
+    startTransition("YOU REACHED THE PLANET!", `Entering Level ${currentLevel}...`);
 }
 
 function showGameOverScreen(isVictory = false) {
@@ -97,8 +121,6 @@ function showGameOverScreen(isVictory = false) {
         titleElement.style.color = "#00ffcc";
         scoreElement.innerText = `Cleared all ${maxCampaignLevel} system levels!`;
         highScoreElement.style.display = 'none';
-        
-        // Show option to take current level difficulty onwards into infinite tiers
         campaignEndlessBtn.style.display = 'block';
     } else {
         titleElement.innerText = "BOOM! CRASHED";
@@ -139,7 +161,6 @@ function spawnAsteroid() {
     const baseSpeed = 120;
     let speed = baseSpeed / size;
     
-    // Scale asteroid velocity based on current level tier (Only applies outside simple endless)
     if (gameMode === 'level' || gameMode === 'campaign_endless') {
         speed += (currentLevel * 0.4); 
     }
@@ -176,7 +197,6 @@ function drawUI() {
         if (distanceToPlanet > 0) {
             ctx.fillText(`Distance to Planet: ${Math.max(0, Math.floor(distanceToPlanet))}m`, 10, 30);
         }
-        // Level Tracker displayed in top-right corner
         ctx.fillStyle = '#00ffcc';
         ctx.fillText(`Level: ${currentLevel}`, canvas.width - 100, 30);
     } else if (gameMode === 'endless') {
@@ -184,6 +204,26 @@ function drawUI() {
         ctx.fillStyle = '#ffcc00'; 
         ctx.fillText(`Hi-Score: ${endlessHighScore}m`, 10, 55);
     }
+}
+
+// Separate draw overlay for rendering text announcements during transitions smoothly
+function drawTransitionOverlay() {
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.4)'; // Dim canvas background slightly
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.textAlign = 'center';
+    
+    // Main big message
+    ctx.fillStyle = '#00ffcc';
+    ctx.font = 'bold 24px "Courier New"';
+    ctx.fillText(transitionMessage, canvas.width / 2, canvas.height / 2 - 20);
+
+    // Subtitle instruction element
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '16px "Courier New"';
+    ctx.fillText(transitionSubMessage, canvas.width / 2, canvas.height / 2 + 20);
+    
+    ctx.textAlign = 'left'; // Reset text alignment back to normal for standard UI
 }
 
 function update() {
@@ -195,23 +235,12 @@ function update() {
     if (player.x + player.width > canvas.width) player.x = canvas.width - player.width;
 
     // Mode Specific Progression Logic
-    if (gameMode === 'level') {
+    if (gameMode === 'level' || gameMode === 'campaign_endless') {
         if (distanceToPlanet > 0) {
             distanceToPlanet -= 0.5;
         } else {
-            if (currentLevel < maxCampaignLevel) {
-                nextLevel(); // Automatically bump into next challenge state
-            } else {
-                showGameOverScreen(true); // Hit level 10 goal boundary
-                return;
-            }
-        }
-    } else if (gameMode === 'campaign_endless') {
-        // Runs infinite level progression loops seamlessly
-        if (distanceToPlanet > 0) {
-            distanceToPlanet -= 0.5;
-        } else {
-            nextLevel();
+            handleLevelClear();
+            return;
         }
     } else if (gameMode === 'endless') {
         endlessDistance += 0.5; 
@@ -252,10 +281,16 @@ function update() {
 function render() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
-    if (gameState === 'PLAYING') {
+    // During a level transition, keep rendering the player ship stationary underneath the alert text
+    if (gameState === 'PLAYING' || gameState === 'TRANSITION') {
         drawPlayer();
         drawAsteroids();
         drawUI();
+    }
+    
+    // Add visual details on top if currently transitioning
+    if (gameState === 'TRANSITION') {
+        drawTransitionOverlay();
     }
 }
 
