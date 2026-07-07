@@ -4,13 +4,12 @@ import { getFirestore, collection, addDoc, getDocs, query, orderBy, limit } from
 
 // !!! REPLACE THIS OBJECT WITH YOUR EXACT CONFIG FROM THE FIREBASE CONSOLE !!!
 const firebaseConfig = {
-  apiKey: "AIzaSyDNWjhBfAYcYHSzXli1nfEToI3nwcHSWO0",
-  authDomain: "space-evaders-fb65d.firebaseapp.com",
-  projectId: "space-evaders-fb65d",
-  storageBucket: "space-evaders-fb65d.firebasestorage.app",
-  messagingSenderId: "620632860696",
-  appId: "1:620632860696:web:c2dbd212aeb394c0667b6d",
-  measurementId: "G-TPJ3DVWDX6"
+    apiKey: "YOUR_API_KEY",
+    authDomain: "YOUR_AUTH_DOMAIN",
+    projectId: "YOUR_PROJECT_ID",
+    storageBucket: "YOUR_STORAGE_BUCKET",
+    messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+    appId: "YOUR_APP_ID"
 };
 
 const app = initializeApp(firebaseConfig);
@@ -32,9 +31,7 @@ let endlessDistance = 0;
 let transitionMessage = '';
 let transitionSubMessage = '';
 
-// Local Storage high score and highest level trackers
 let endlessHighScore = localStorage.getItem('spaceDodgerHighScore') ? parseInt(localStorage.getItem('spaceDodgerHighScore')) : 0;
-let highestLevelCleared = localStorage.getItem('spaceDodgerMaxLevel') ? parseInt(localStorage.getItem('spaceDodgerMaxLevel')) : 0;
 
 const player = {
     x: canvas.width / 2 - 15,
@@ -61,68 +58,46 @@ document.addEventListener('keyup', (e) => {
 
 // --- Firebase Leaderboard Functions ---
 
-// Fetch BOTH board structures from database
-async function loadLeaderboards() {
+// Fetch Top 5 Endless Scores from Firebase
+async function loadLeaderboard() {
     try {
-        // 1. Fetch Endless Distance Leaderboard
-        const endlessRef = collection(db, "leaderboard");
-        const qEndless = query(endlessRef, orderBy("distance", "desc"), limit(5));
-        const endlessSnapshot = await getDocs(qEndless);
+        const scoresRef = collection(db, "leaderboard");
+        const q = query(scoresRef, orderBy("distance", "desc"), limit(5));
+        const querySnapshot = await getDocs(q);
         
-        let endlessHtml = "";
-        let eRank = 1;
-        endlessSnapshot.forEach((doc) => {
+        let htmlContent = "";
+        let rank = 1;
+        
+        querySnapshot.forEach((doc) => {
             const data = doc.data();
-            endlessHtml += `<div>#${eRank} ${data.name}: ${data.distance}m</div>`;
-            eRank++;
+            htmlContent += `<div>#${rank} ${data.name} - ${data.distance}m</div>`;
+            rank++;
         });
-        if (endlessHtml === "") endlessHtml = "No scores yet";
-        
-        document.getElementById('menuLeaderboard').innerHTML = endlessHtml;
-        document.getElementById('gameOverLeaderboard').innerHTML = endlessHtml;
 
-        // 2. Fetch Highest Level Leaderboard
-        const levelRef = collection(db, "level_leaderboard");
-        const qLevel = query(levelRef, orderBy("level", "desc"), limit(5));
-        const levelSnapshot = await getDocs(qLevel);
+        if (htmlContent === "") htmlContent = "No high scores yet. Be the first!";
         
-        let levelHtml = "";
-        let lRank = 1;
-        levelSnapshot.forEach((doc) => {
-            const data = doc.data();
-            levelHtml += `<div>#${lRank} ${data.name}: Lvl ${data.level}</div>`;
-            lRank++;
-        });
-        if (levelHtml === "") levelHtml = "No scores yet";
-        
-        document.getElementById('menuLevelLeaderboard').innerHTML = levelHtml;
-        document.getElementById('gameOverLevelLeaderboard').innerHTML = levelHtml;
-
+        document.getElementById('menuLeaderboard').innerHTML = htmlContent;
+        document.getElementById('gameOverLeaderboard').innerHTML = htmlContent;
     } catch (error) {
-        console.error("Error loading leaderboards: ", error);
+        console.error("Error loading leaderboard: ", error);
+        document.getElementById('menuLeaderboard').innerText = "Failed to load scores.";
     }
 }
 
-// Upload entry to selected collection type ('distance' or 'level')
-async function saveOnlineScore(type, value) {
-    const isLevel = type === 'level';
-    const msg = isLevel 
-        ? `New Highest Level! You reached Level ${value}. Enter name (Max 10 chars):` 
-        : `New High Score! You traveled ${value}m. Enter name (Max 10 chars):`;
-        
-    const playerName = prompt(msg);
+// Upload Endless score to Firestore
+async function saveOnlineScore(score) {
+    const playerName = prompt("New High Score! Enter your name for the global leaderboard (Max 10 chars):");
     const cleanName = playerName ? playerName.substring(0, 10).toUpperCase() : "ANONYMOUS";
     
     try {
-        const targetCollection = isLevel ? "level_leaderboard" : "leaderboard";
-        const dataPayload = isLevel 
-            ? { name: cleanName, level: value, timestamp: new Date() }
-            : { name: cleanName, distance: value, timestamp: new Date() };
-
-        await addDoc(collection(db, targetCollection), dataPayload);
-        loadLeaderboards();
+        await addDoc(collection(db, "leaderboard"), {
+            name: cleanName,
+            distance: score,
+            timestamp: new Date()
+        });
+        loadLeaderboard();
     } catch (e) {
-        console.error("Error adding document: ", e);
+        console.error("Error adding score: ", e);
     }
 }
 
@@ -168,14 +143,8 @@ function startTransition(mainText, subText) {
     }, 2500);
 }
 
-async function handleLevelClear() {
-    // If they beat level 10, they cleared the standard loop
+function handleLevelClear() {
     if (gameMode === 'level' && currentLevel >= maxCampaignLevel) {
-        if (currentLevel > highestLevelCleared) {
-            highestLevelCleared = currentLevel;
-            localStorage.setItem('spaceDodgerMaxLevel', highestLevelCleared);
-            await saveOnlineScore('level', currentLevel);
-        }
         showGameOverScreen(true);
         return;
     }
@@ -200,7 +169,7 @@ async function showGameOverScreen(isVictory = false) {
     const highScoreElement = document.getElementById('gameOverHighScore');
     const campaignEndlessBtn = document.getElementById('campaignEndlessBtn');
     
-    loadLeaderboards();
+    loadLeaderboard();
 
     if (isVictory) {
         titleElement.innerText = "YOU WIN!";
@@ -216,13 +185,6 @@ async function showGameOverScreen(isVictory = false) {
         if (gameMode === 'level' || gameMode === 'campaign_endless') {
             scoreElement.innerText = `Crashed on Level ${currentLevel}`;
             highScoreElement.style.display = 'none';
-            
-            // Check if their death point sets a brand new progressive level record
-            if (currentLevel > highestLevelCleared) {
-                highestLevelCleared = currentLevel;
-                localStorage.setItem('spaceDodgerMaxLevel', highestLevelCleared);
-                await saveOnlineScore('level', currentLevel);
-            }
         } else if (gameMode === 'endless') {
             let finalScore = Math.floor(endlessDistance);
             scoreElement.innerText = `Final Distance: ${finalScore}m`;
@@ -232,7 +194,8 @@ async function showGameOverScreen(isVictory = false) {
                 localStorage.setItem('spaceDodgerHighScore', endlessHighScore);
                 highScoreElement.innerText = `NEW HIGH SCORE: ${endlessHighScore}m!`;
                 highScoreElement.style.color = "#00ffcc";
-                await saveOnlineScore('distance', finalScore);
+                
+                await saveOnlineScore(finalScore);
             } else {
                 highScoreElement.innerText = `High Score: ${endlessHighScore}m`;
                 highScoreElement.style.color = "#ffcc00";
@@ -248,7 +211,7 @@ function showMainMenu() {
     gameState = 'MENU';
     document.getElementById('mainMenu').style.display = 'flex';
     document.getElementById('gameOverMenu').style.display = 'none';
-    loadLeaderboards(); 
+    loadLeaderboard(); 
 }
 
 function spawnAsteroid() {
@@ -277,6 +240,7 @@ function drawPlayer() {
     ctx.fillRect(player.x + 20, player.y + 20, 10, 10);
 }
 
+// Make sure your config variables are applied inside firebaseConfig at the top!
 function drawAsteroids() {
     ctx.fillStyle = '#ff5555';
     asteroids.forEach(ast => {
@@ -383,7 +347,7 @@ function gameLoop() {
 }
 
 gameLoop();
-loadLeaderboards();
+loadLeaderboard();
 
 // --- Event Listeners for HTML DOM Buttons ---
 document.getElementById('levelBtn').addEventListener('click', () => startGame('level'));
