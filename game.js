@@ -10,6 +10,9 @@ let gameOver = false;
 let distanceToPlanet = 1000; 
 let endlessDistance = 0;     
 
+// High Score Tracking (Loads saved highscore from localStorage, defaults to 0 if empty)
+let endlessHighScore = localStorage.getItem('spaceDodgerHighScore') ? parseInt(localStorage.getItem('spaceDodgerHighScore')) : 0;
+
 // 8-Bit Spaceship
 const player = {
     x: canvas.width / 2 - 15,
@@ -65,20 +68,38 @@ function showGameOverScreen(isVictory = false) {
     
     const titleElement = document.getElementById('gameOverTitle');
     const scoreElement = document.getElementById('gameOverScore');
+    const highScoreElement = document.getElementById('gameOverHighScore');
     
     // Customize text based on whether they won or crashed
     if (isVictory) {
         titleElement.innerText = "VICTORY!";
         titleElement.style.color = "#00ffcc";
         scoreElement.innerText = "You safely reached the planet!";
+        highScoreElement.style.display = 'none'; // Hide high score text during level victory
     } else {
         titleElement.innerText = "BOOM! CRASHED";
         titleElement.style.color = "#ff5555";
         
-        let finalScore = gameMode === 'level' 
-            ? Math.floor(1000 - distanceToPlanet) 
-            : Math.floor(endlessDistance);
-        scoreElement.innerText = `Final Distance: ${finalScore}m`;
+        if (gameMode === 'level') {
+            let finalScore = Math.floor(1000 - distanceToPlanet);
+            scoreElement.innerText = `Final Distance: ${finalScore}m`;
+            highScoreElement.style.display = 'none'; // Only show highscore for endless
+        } else if (gameMode === 'endless') {
+            let finalScore = Math.floor(endlessDistance);
+            scoreElement.innerText = `Final Distance: ${finalScore}m`;
+            
+            // Check and update local storage high score
+            if (finalScore > endlessHighScore) {
+                endlessHighScore = finalScore;
+                localStorage.setItem('spaceDodgerHighScore', endlessHighScore);
+                highScoreElement.innerText = `NEW HIGH SCORE: ${endlessHighScore}m!`;
+                highScoreElement.style.color = "#00ffcc"; // Flash green for new highscore
+            } else {
+                highScoreElement.innerText = `High Score: ${endlessHighScore}m`;
+                highScoreElement.style.color = "#ffcc00"; // Standard gold
+            }
+            highScoreElement.style.display = 'block'; // Make element visible
+        }
     }
     
     // Show the game over overlay
@@ -128,7 +149,9 @@ function drawUI() {
             ctx.fillText(`Distance to Planet: ${Math.max(0, Math.floor(distanceToPlanet))}m`, 10, 30);
         }
     } else if (gameMode === 'endless') {
-        ctx.fillText(`Distance Traveled: ${Math.floor(endlessDistance)}m`, 10, 30);
+        ctx.fillText(`Distance: ${Math.floor(endlessDistance)}m`, 10, 30);
+        ctx.fillStyle = '#ffcc00'; // Make highscore pop out a bit in gold layout
+        ctx.fillText(`Hi-Score: ${endlessHighScore}m`, 10, 55);
     }
 }
 
@@ -199,7 +222,7 @@ function gameLoop() {
     requestAnimationFrame(gameLoop);
 }
 
-// Start Game Loop (Waits in menu safely because gameState is initialized to 'MENU')
+// Start Game Loop
 gameLoop();
 
 // --- Event Listeners for HTML DOM Buttons ---
