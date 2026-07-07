@@ -2,7 +2,7 @@ const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
 // Game States
-let gameOver = false
+let gameOver = false;
 let distanceToPlanet = 1000; // Goal distance
 const targetPlanet = { x: canvas.width / 2, y: -200, radius: 80 };
 
