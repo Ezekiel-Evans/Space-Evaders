@@ -2,9 +2,13 @@ const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
 // Game States
+let gameState = 'MENU'; // 'MENU', 'PLAYING', 'GAMEOVER'
+let gameMode = '';      // 'level' or 'endless'
 let gameOver = false;
-let distanceToPlanet = 1000; // Goal distance
-const targetPlanet = { x: canvas.width / 2, y: -200, radius: 80 };
+
+// Mode Tracking variables
+let distanceToPlanet = 1000; // Goal distance for level mode
+let endlessDistance = 0;     // Score tracker for endless mode
 
 // 8-Bit Spaceship
 const player = {
@@ -17,11 +21,12 @@ const player = {
 };
 
 // Asteroids array
-const asteroids = [];
+let asteroids = [];
 let spawnTimer = 0;
 
 // Keyboard Controls
 document.addEventListener('keydown', (e) => {
+    if (gameState !== 'PLAYING') return;
     if (e.key === 'ArrowLeft' || e.key === 'a') player.dx = -player.speed;
     if (e.key === 'ArrowRight' || e.key === 'd') player.dx = player.speed;
 });
@@ -30,10 +35,29 @@ document.addEventListener('keyup', (e) => {
     if (['ArrowLeft', 'a', 'ArrowRight', 'd'].includes(e.key)) player.dx = 0;
 });
 
+// Function called by HTML Buttons
+function startGame(mode) {
+    gameMode = mode;
+    gameState = 'PLAYING';
+    gameOver = false;
+    asteroids = [];
+    spawnTimer = 0;
+    
+    // Reset values depending on mode
+    if (mode === 'level') {
+        distanceToPlanet = 1000;
+    } else {
+        endlessDistance = 0;
+    }
+    
+    // Hide the HTML menu overlay
+    document.getElementById('mainMenu').style.display = 'none';
+}
+
 function spawnAsteroid() {
-    const size = Math.random() * 30 + 15; // 8-bit chunks
+    const size = Math.random() * 30 + 15; 
     const baseSpeed = 120;
-    const speed = baseSpeed/size
+    const speed = baseSpeed / size;
     asteroids.push({
         x: Math.random() * (canvas.width - size),
         y: -size,
@@ -45,7 +69,6 @@ function spawnAsteroid() {
 
 function drawPlayer() {
     ctx.fillStyle = '#00ffcc';
-    // Simple 8-bit classic rocket shape using rects
     ctx.fillRect(player.x + 10, player.y, 10, 10);
     ctx.fillRect(player.x, player.y + 10, 30, 10);
     ctx.fillRect(player.x, player.y + 20, 10, 10);
@@ -62,30 +85,42 @@ function drawAsteroids() {
 function drawUI() {
     ctx.fillStyle = '#fff';
     ctx.font = '16px "Courier New"';
-    if (distanceToPlanet > 0) {
-        ctx.fillText(`Distance to Planet: ${Math.max(0, Math.floor(distanceToPlanet))}m`, 10, 30);
-    } else {
-        ctx.fillStyle = '#00ffcc';
-        ctx.fillText("YOU REACHED THE PLANET!", canvas.width / 2 - 100, canvas.height / 2);
+    
+    if (gameMode === 'level') {
+        if (distanceToPlanet > 0) {
+            ctx.fillText(`Distance to Planet: ${Math.max(0, Math.floor(distanceToPlanet))}m`, 10, 30);
+        } else {
+            ctx.fillStyle = '#00ffcc';
+            ctx.fillText("YOU REACHED THE PLANET!", canvas.width / 2 - 110, canvas.height / 2);
+            gameOver = true;
+        }
+    } else if (gameMode === 'endless') {
+        ctx.fillText(`Distance Traveled: ${Math.floor(endlessDistance)}m`, 10, 30);
     }
 }
 
 function update() {
-    if (gameOver) return;
+    if (gameState !== 'PLAYING' || gameOver) return;
 
     // Move Player & Keep in bounds
     player.x += player.dx;
     if (player.x < 0) player.x = 0;
     if (player.x + player.width > canvas.width) player.x = canvas.width - player.width;
 
-    // Decrease distance to victory
-    if (distanceToPlanet > 0) {
-        distanceToPlanet -= 0.5;
+    // Mode Specific Logic
+    if (gameMode === 'level') {
+        if (distanceToPlanet > 0) {
+            distanceToPlanet -= 0.5;
+        }
+    } else if (gameMode === 'endless') {
+        endlessDistance += 0.5; // Always increases
     }
 
-    // Spawn Asteroids
+    // Spawn Asteroids (Endless spawns forever, Level stops spawning near the end)
     spawnTimer++;
-    if (spawnTimer > 30 && distanceToPlanet > 100) {
+    let shouldSpawn = gameMode === 'endless' || (gameMode === 'level' && distanceToPlanet > 100);
+    
+    if (spawnTimer > 30 && shouldSpawn) {
         spawnAsteroid();
         spawnTimer = 0;
     }
@@ -95,17 +130,18 @@ function update() {
         const ast = asteroids[i];
         ast.y += ast.speed;
 
-        // Collision Detection (AABB)
+        // Collision Detection
         if (player.x < ast.x + ast.width &&
             player.x + player.width > ast.x &&
             player.y < ast.y + ast.height &&
             player.y + player.height > ast.y) {
                 
-                // Explode effect (Clear screen/close game)
-                gameOver = true;
-                alert("Boom! Your ship exploded.");
-                window.close(); // Note: modern browsers only allow window.close() if opened via script, so we fallback to a blank screen
-                window.location.reload(); 
+            gameOver = true;
+            gameState = 'MENU';
+            alert(`Boom! Ship exploded. \nFinal Score: ${gameMode === 'level' ? Math.floor(1000 - distanceToPlanet) + 'm' : Math.floor(endlessDistance) + 'm'}`);
+            
+            // Show menu overlay again instead of forcing reload
+            document.getElementById('mainMenu').style.display = 'flex';
         }
 
         // Remove off-screen asteroids
@@ -118,9 +154,11 @@ function update() {
 function render() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
-    drawPlayer();
-    drawAsteroids();
-    drawUI();
+    if (gameState === 'PLAYING') {
+        drawPlayer();
+        drawAsteroids();
+        drawUI();
+    }
 }
 
 function gameLoop() {
@@ -129,5 +167,5 @@ function gameLoop() {
     requestAnimationFrame(gameLoop);
 }
 
-// Start Game Loop
+// Start Loop (will wait in MENU state until button click)
 gameLoop();
