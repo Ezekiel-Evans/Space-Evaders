@@ -63,7 +63,6 @@ document.addEventListener('keyup', (e) => {
 async function loadLeaderboard() {
     try {
         const scoresRef = collection(db, "leaderboard");
-        // Query options: Sort by distance descending, limit to top 5 entries
         const q = query(scoresRef, orderBy("distance", "desc"), limit(5));
         const querySnapshot = await getDocs(q);
         
@@ -78,7 +77,6 @@ async function loadLeaderboard() {
 
         if (htmlContent === "") htmlContent = "No high scores yet. Be the first!";
         
-        // Update both UI leaderboard panels
         document.getElementById('menuLeaderboard').innerHTML = htmlContent;
         document.getElementById('gameOverLeaderboard').innerHTML = htmlContent;
     } catch (error) {
@@ -98,7 +96,6 @@ async function saveOnlineScore(score) {
             distance: score,
             timestamp: new Date()
         });
-        // Reload leaderboard automatically after sending data
         loadLeaderboard();
     } catch (e) {
         console.error("Error adding document: ", e);
@@ -173,7 +170,6 @@ async function showGameOverScreen(isVictory = false) {
     const highScoreElement = document.getElementById('gameOverHighScore');
     const campaignEndlessBtn = document.getElementById('campaignEndlessBtn');
     
-    // Always trigger a refresh to show the most recent top scores
     loadLeaderboard();
 
     if (isVictory) {
@@ -194,14 +190,12 @@ async function showGameOverScreen(isVictory = false) {
             let finalScore = Math.floor(endlessDistance);
             scoreElement.innerText = `Final Distance: ${finalScore}m`;
             
-            // Local score tracking
             if (finalScore > endlessHighScore) {
                 endlessHighScore = finalScore;
                 localStorage.setItem('spaceDodgerHighScore', endlessHighScore);
                 highScoreElement.innerText = `NEW HIGH SCORE: ${endlessHighScore}m!`;
                 highScoreElement.style.color = "#00ffcc";
                 
-                // Trigger online Firebase upload if you break your personal local record!
                 await saveOnlineScore(finalScore);
             } else {
                 highScoreElement.innerText = `High Score: ${endlessHighScore}m`;
@@ -218,7 +212,7 @@ function showMainMenu() {
     gameState = 'MENU';
     document.getElementById('mainMenu').style.display = 'flex';
     document.getElementById('gameOverMenu').style.display = 'none';
-    loadLeaderboard(); // Load fresh database entries on returning to menu
+    loadLeaderboard(); 
 }
 
 function spawnAsteroid() {
@@ -237,6 +231,35 @@ function spawnAsteroid() {
         height: size,
         speed: speed
     });
+}
+
+// --- Graphical Rendering Functions ---
+
+function drawPlanet() {
+    // Only show the planet when the player is close (less than 300m away)
+    if (distanceToPlanet < 300) {
+        ctx.save();
+        
+        // As distance drops from 300 down to 0, progress moves from 0 to 1
+        let progress = (300 - distanceToPlanet) / 300;
+        
+        // Slowly glide the planet down from above the boundary onto the visible canvas
+        let planetY = -240 + (progress * 60); 
+
+        ctx.fillStyle = '#882255'; // Dark Pink / Magenta atmosphere base
+        ctx.beginPath();
+        // A huge arc centered horizontally at the top to cover corner-to-corner smoothly
+        ctx.arc(canvas.width / 2, planetY, 250, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Retro inner structural depth shadow line
+        ctx.fillStyle = '#661133';
+        ctx.beginPath();
+        ctx.arc(canvas.width / 2, planetY, 230, 0, Math.PI, false);
+        ctx.fill();
+
+        ctx.restore();
+    }
 }
 
 function drawPlayer() {
@@ -285,6 +308,8 @@ function drawTransitionOverlay() {
     ctx.fillText(transitionSubMessage, canvas.width / 2, canvas.height / 2 + 20);
     ctx.textAlign = 'left'; 
 }
+
+// --- Frame Updates & Main Control Loops ---
 
 function update() {
     if (gameState !== 'PLAYING') return;
@@ -336,6 +361,12 @@ function render() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
     if (gameState === 'PLAYING' || gameState === 'TRANSITION') {
+        // Draw the planet at the back of the layer layout
+        if (gameMode === 'level' || gameMode === 'campaign_endless') {
+            drawPlanet();
+        }
+        
+        // Draw gameplay entities on top of space/planet background
         drawPlayer();
         drawAsteroids();
         drawUI();
@@ -352,7 +383,7 @@ function gameLoop() {
     requestAnimationFrame(gameLoop);
 }
 
-// Start game loop and initial data pull
+// Global Execution Initialization
 gameLoop();
 loadLeaderboard();
 
