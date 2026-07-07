@@ -1,25 +1,40 @@
+// --- Firebase Initial Setup ---
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, collection, addDoc, getDocs, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+// !!! REPLACE THIS OBJECT WITH YOUR EXACT CONFIG FROM THE FIREBASE CONSOLE !!!
+const firebaseConfig = {
+  apiKey: "AIzaSyDNWjhBfAYcYHSzXli1nfEToI3nwcHSWO0",
+  authDomain: "space-evaders-fb65d.firebaseapp.com",
+  projectId: "space-evaders-fb65d",
+  storageBucket: "space-evaders-fb65d.firebasestorage.app",
+  messagingSenderId: "620632860696",
+  appId: "1:620632860696:web:c2dbd212aeb394c0667b6d",
+  measurementId: "G-TPJ3DVWDX6"
+};
+
+// Initialize Firebase & Firestore database instance
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+// --- Game Variables & States ---
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
-// Game States
-let gameState = 'MENU'; // 'MENU', 'PLAYING', 'TRANSITION', 'GAMEOVER'
-let gameMode = '';      // 'level' or 'endless' or 'campaign_endless'
+let gameState = 'MENU'; 
+let gameMode = '';      
 let gameOver = false;
 
-// Progression Tracking variables
 let currentLevel = 1;
 const maxCampaignLevel = 10;
 let distanceToPlanet = 1000; 
 let endlessDistance = 0;     
 
-// Level Break Transition Trackers
 let transitionMessage = '';
 let transitionSubMessage = '';
 
-// High Score Tracking
 let endlessHighScore = localStorage.getItem('spaceDodgerHighScore') ? parseInt(localStorage.getItem('spaceDodgerHighScore')) : 0;
 
-// 8-Bit Spaceship
 const player = {
     x: canvas.width / 2 - 15,
     y: canvas.height - 60,
@@ -29,7 +44,6 @@ const player = {
     dx: 0
 };
 
-// Asteroids array
 let asteroids = [];
 let spawnTimer = 0;
 
@@ -44,18 +58,66 @@ document.addEventListener('keyup', (e) => {
     if (['ArrowLeft', 'a', 'ArrowRight', 'd'].includes(e.key)) player.dx = 0;
 });
 
+// --- Firebase Leaderboard Functions ---
+
+// 1. Fetch Top 5 High Scores from Firebase and inject into HTML
+async function loadLeaderboard() {
+    try {
+        const scoresRef = collection(db, "leaderboard");
+        // Query options: Sort by distance descending, limit to top 5 entries
+        const q = query(scoresRef, orderBy("distance", "desc"), limit(5));
+        const querySnapshot = await getDocs(q);
+        
+        let htmlContent = "";
+        let rank = 1;
+        
+        querySnapshot.forEach((doc) => {
+            const data = doc.data();
+            htmlContent += `<div>#${rank} ${data.name} - ${data.distance}m</div>`;
+            rank++;
+        });
+
+        if (htmlContent === "") htmlContent = "No high scores yet. Be the first!";
+        
+        // Update both UI leaderboard panels
+        document.getElementById('menuLeaderboard').innerHTML = htmlContent;
+        document.getElementById('gameOverLeaderboard').innerHTML = htmlContent;
+    } catch (error) {
+        console.error("Error loading leaderboard: ", error);
+        document.getElementById('menuLeaderboard').innerText = "Failed to load scores.";
+    }
+}
+
+// 2. Upload score to Firestore database
+async function saveOnlineScore(score) {
+    const playerName = prompt("New High Score! Enter your name for the global leaderboard (Max 10 chars):");
+    const cleanName = playerName ? playerName.substring(0, 10).toUpperCase() : "ANONYMOUS";
+    
+    try {
+        await addDoc(collection(db, "leaderboard"), {
+            name: cleanName,
+            distance: score,
+            timestamp: new Date()
+        });
+        // Reload leaderboard automatically after sending data
+        loadLeaderboard();
+    } catch (e) {
+        console.error("Error adding document: ", e);
+    }
+}
+
+// --- Gameplay Flow Logics ---
+
 function startGame(mode) {
     gameMode = mode;
     gameOver = false;
     asteroids = [];
     spawnTimer = 0;
     
-    // Reset ship positioning
     player.x = canvas.width / 2 - 15;
     player.y = canvas.height - 60;
     player.dx = 0;
     
-    // Hide menus cleanly
     document.getElementById('mainMenu').style.display = 'none';
     document.getElementById('gameOverMenu').style.display = 'none';
     document.getElementById('campaignEndlessBtn').style.display = 'none';
@@ -63,14 +125,13 @@ function startGame(mode) {
     if (mode === 'level') {
         currentLevel = 1;
         distanceToPlanet = 1000;
-        // Kick off with a "LEVEL 1" countdown break
         startTransition(`LEVEL ${currentLevel}`, "Get Ready!");
     } else if (mode === 'campaign_endless') {
         distanceToPlanet = 1000 + (currentLevel * 100);
         startTransition(`LEVEL ${currentLevel}`, "Endless Run Continues...");
     } else if (mode === 'endless') {
         endlessDistance = 0;
-        gameState = 'PLAYING'; // Endless doesn't need level barriers, jump straight in
+        gameState = 'PLAYING'; 
     }
 }
 
@@ -78,9 +139,8 @@ function startTransition(mainText, subText) {
     gameState = 'TRANSITION';
     transitionMessage = mainText;
     transitionSubMessage = subText;
-    player.dx = 0; // Freeze ship drift during pauses
+    player.dx = 0; 
 
-    // Pause action for 2.5 seconds, then drop player back into real-time gameplay
     setTimeout(() => {
         if (gameState === 'TRANSITION') {
             gameState = 'PLAYING';
@@ -89,7 +149,6 @@ function startTransition(mainText, subText) {
 }
 
 function handleLevelClear() {
-    // Check if campaign is entirely cleared
     if (gameMode === 'level' && currentLevel >= maxCampaignLevel) {
         showGameOverScreen(true);
         return;
@@ -103,11 +162,10 @@ function handleLevelClear() {
     player.x = canvas.width / 2 - 15;
     player.y = canvas.height - 60;
 
-    // Transition showing "YOU REACHED THE PLANET!" followed by the next level announcement
     startTransition("YOU REACHED THE PLANET!", `Entering Level ${currentLevel}...`);
 }
 
-function showGameOverScreen(isVictory = false) {
+async function showGameOverScreen(isVictory = false) {
     gameState = 'GAMEOVER';
     gameOver = true;
     
@@ -116,6 +174,9 @@ function showGameOverScreen(isVictory = false) {
     const highScoreElement = document.getElementById('gameOverHighScore');
     const campaignEndlessBtn = document.getElementById('campaignEndlessBtn');
     
+    // Always trigger a refresh to show the most recent top scores
+    loadLeaderboard();
+
     if (isVictory) {
         titleElement.innerText = "YOU WIN!";
         titleElement.style.color = "#00ffcc";
@@ -134,11 +195,15 @@ function showGameOverScreen(isVictory = false) {
             let finalScore = Math.floor(endlessDistance);
             scoreElement.innerText = `Final Distance: ${finalScore}m`;
             
+            // Local score tracking
             if (finalScore > endlessHighScore) {
                 endlessHighScore = finalScore;
                 localStorage.setItem('spaceDodgerHighScore', endlessHighScore);
                 highScoreElement.innerText = `NEW HIGH SCORE: ${endlessHighScore}m!`;
                 highScoreElement.style.color = "#00ffcc";
+                
+                // Trigger online Firebase upload if you break your personal local record!
+                await saveOnlineScore(finalScore);
             } else {
                 highScoreElement.innerText = `High Score: ${endlessHighScore}m`;
                 highScoreElement.style.color = "#ffcc00";
@@ -154,6 +219,7 @@ function showMainMenu() {
     gameState = 'MENU';
     document.getElementById('mainMenu').style.display = 'flex';
     document.getElementById('gameOverMenu').style.display = 'none';
+    loadLeaderboard(); // Load fresh database entries on returning to menu
 }
 
 function spawnAsteroid() {
@@ -206,35 +272,28 @@ function drawUI() {
     }
 }
 
-// Separate draw overlay for rendering text announcements during transitions smoothly
 function drawTransitionOverlay() {
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.4)'; // Dim canvas background slightly
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.4)'; 
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-
     ctx.textAlign = 'center';
     
-    // Main big message
     ctx.fillStyle = '#00ffcc';
     ctx.font = 'bold 24px "Courier New"';
     ctx.fillText(transitionMessage, canvas.width / 2, canvas.height / 2 - 20);
 
-    // Subtitle instruction element
     ctx.fillStyle = '#ffffff';
     ctx.font = '16px "Courier New"';
     ctx.fillText(transitionSubMessage, canvas.width / 2, canvas.height / 2 + 20);
-    
-    ctx.textAlign = 'left'; // Reset text alignment back to normal for standard UI
+    ctx.textAlign = 'left'; 
 }
 
 function update() {
     if (gameState !== 'PLAYING') return;
 
-    // Move Player & Keep in bounds
     player.x += player.dx;
     if (player.x < 0) player.x = 0;
     if (player.x + player.width > canvas.width) player.x = canvas.width - player.width;
 
-    // Mode Specific Progression Logic
     if (gameMode === 'level' || gameMode === 'campaign_endless') {
         if (distanceToPlanet > 0) {
             distanceToPlanet -= 0.5;
@@ -246,7 +305,6 @@ function update() {
         endlessDistance += 0.5; 
     }
 
-    // Spawn Asteroids
     spawnTimer++;
     let isLevelMode = (gameMode === 'level' || gameMode === 'campaign_endless');
     let shouldSpawn = gameMode === 'endless' || (isLevelMode && distanceToPlanet > 100);
@@ -256,12 +314,10 @@ function update() {
         spawnTimer = 0;
     }
 
-    // Move and check Asteroids
     for (let i = asteroids.length - 1; i >= 0; i--) {
         const ast = asteroids[i];
         ast.y += ast.speed;
 
-        // Collision Detection
         if (player.x < ast.x + ast.width &&
             player.x + player.width > ast.x &&
             player.y < ast.y + ast.height &&
@@ -271,7 +327,6 @@ function update() {
             return;
         }
 
-        // Remove off-screen asteroids
         if (ast.y > canvas.height) {
             asteroids.splice(i, 1);
         }
@@ -281,14 +336,12 @@ function update() {
 function render() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
-    // During a level transition, keep rendering the player ship stationary underneath the alert text
     if (gameState === 'PLAYING' || gameState === 'TRANSITION') {
         drawPlayer();
         drawAsteroids();
         drawUI();
     }
     
-    // Add visual details on top if currently transitioning
     if (gameState === 'TRANSITION') {
         drawTransitionOverlay();
     }
@@ -300,8 +353,9 @@ function gameLoop() {
     requestAnimationFrame(gameLoop);
 }
 
-// Start Game Loop
+// Start game loop and initial data pull
 gameLoop();
+loadLeaderboard();
 
 // --- Event Listeners for HTML DOM Buttons ---
 document.getElementById('levelBtn').addEventListener('click', () => startGame('level'));
