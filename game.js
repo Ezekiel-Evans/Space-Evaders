@@ -54,7 +54,7 @@ function startGame(mode) {
         endlessDistance = 0;
     }
     
-    // Hide all menus
+    // Hide all HTML UI menus
     document.getElementById('mainMenu').style.display = 'none';
     document.getElementById('gameOverMenu').style.display = 'none';
 }
@@ -172,7 +172,7 @@ function update() {
             player.y < ast.y + ast.height &&
             player.y + player.height > ast.y) {
                 
-            showGameOverScreen(false); // Lost
+            showGameOverScreen(false); // Triggers game over overlay screen
             return;
         }
 
@@ -199,10 +199,10 @@ function gameLoop() {
     requestAnimationFrame(gameLoop);
 }
 
-// Start Loop
+// Start Game Loop (Waits in menu safely because gameState is initialized to 'MENU')
 gameLoop();
 
-// --- Event Listeners for HTML UI Elements ---
+// --- Event Listeners for HTML DOM Buttons ---
 document.getElementById('levelBtn').addEventListener('click', () => startGame('level'));
 document.getElementById('endlessBtn').addEventListener('click', () => startGame('endless'));
 document.getElementById('tryAgainBtn').addEventListener('click', () => startGame(gameMode));
