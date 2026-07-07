@@ -3,14 +3,16 @@ const ctx = canvas.getContext('2d');
 
 // Game States
 let gameState = 'MENU'; // 'MENU', 'PLAYING', 'GAMEOVER'
-let gameMode = '';      // 'level' or 'endless'
+let gameMode = '';      // 'level' or 'endless' or 'campaign_endless'
 let gameOver = false;
 
-// Mode Tracking variables
+// Progression Tracking variables
+let currentLevel = 1;
+const maxCampaignLevel = 10;
 let distanceToPlanet = 1000; 
 let endlessDistance = 0;     
 
-// High Score Tracking (Loads saved highscore from localStorage, defaults to 0 if empty)
+// High Score Tracking
 let endlessHighScore = localStorage.getItem('spaceDodgerHighScore') ? parseInt(localStorage.getItem('spaceDodgerHighScore')) : 0;
 
 // 8-Bit Spaceship
@@ -50,16 +52,35 @@ function startGame(mode) {
     player.y = canvas.height - 60;
     player.dx = 0;
     
-    // Reset values depending on mode
+    // Reset values depending on selected path
     if (mode === 'level') {
-        distanceToPlanet = 1000;
-    } else {
+        currentLevel = 1;
+        distanceToPlanet = 1000; // Base starting distance
+    } else if (mode === 'campaign_endless') {
+        // Continuous level climbing after beating level 10
+        distanceToPlanet = 1000 + (currentLevel * 100);
+    } else if (mode === 'endless') {
         endlessDistance = 0;
     }
     
-    // Hide all HTML UI menus
+    // Hide menus and reset special buttons
     document.getElementById('mainMenu').style.display = 'none';
     document.getElementById('gameOverMenu').style.display = 'none';
+    document.getElementById('campaignEndlessBtn').style.display = 'none';
+}
+
+function nextLevel() {
+    currentLevel++;
+    asteroids = [];
+    spawnTimer = 0;
+    
+    // Grow length requirement by 100m for each progressive level
+    distanceToPlanet = 1000 + (currentLevel * 100);
+    
+    // Put spaceship back at starting position safely
+    player.x = canvas.width / 2 - 15;
+    player.y = canvas.height - 60;
+    player.dx = 0;
 }
 
 function showGameOverScreen(isVictory = false) {
@@ -69,40 +90,41 @@ function showGameOverScreen(isVictory = false) {
     const titleElement = document.getElementById('gameOverTitle');
     const scoreElement = document.getElementById('gameOverScore');
     const highScoreElement = document.getElementById('gameOverHighScore');
+    const campaignEndlessBtn = document.getElementById('campaignEndlessBtn');
     
-    // Customize text based on whether they won or crashed
     if (isVictory) {
-        titleElement.innerText = "VICTORY!";
+        titleElement.innerText = "YOU WIN!";
         titleElement.style.color = "#00ffcc";
-        scoreElement.innerText = "You safely reached the planet!";
-        highScoreElement.style.display = 'none'; // Hide high score text during level victory
+        scoreElement.innerText = `Cleared all ${maxCampaignLevel} system levels!`;
+        highScoreElement.style.display = 'none';
+        
+        // Show option to take current level difficulty onwards into infinite tiers
+        campaignEndlessBtn.style.display = 'block';
     } else {
         titleElement.innerText = "BOOM! CRASHED";
         titleElement.style.color = "#ff5555";
+        campaignEndlessBtn.style.display = 'none';
         
-        if (gameMode === 'level') {
-            let finalScore = Math.floor(1000 - distanceToPlanet);
-            scoreElement.innerText = `Final Distance: ${finalScore}m`;
-            highScoreElement.style.display = 'none'; // Only show highscore for endless
+        if (gameMode === 'level' || gameMode === 'campaign_endless') {
+            scoreElement.innerText = `Crashed on Level ${currentLevel}`;
+            highScoreElement.style.display = 'none';
         } else if (gameMode === 'endless') {
             let finalScore = Math.floor(endlessDistance);
             scoreElement.innerText = `Final Distance: ${finalScore}m`;
             
-            // Check and update local storage high score
             if (finalScore > endlessHighScore) {
                 endlessHighScore = finalScore;
                 localStorage.setItem('spaceDodgerHighScore', endlessHighScore);
                 highScoreElement.innerText = `NEW HIGH SCORE: ${endlessHighScore}m!`;
-                highScoreElement.style.color = "#00ffcc"; // Flash green for new highscore
+                highScoreElement.style.color = "#00ffcc";
             } else {
                 highScoreElement.innerText = `High Score: ${endlessHighScore}m`;
-                highScoreElement.style.color = "#ffcc00"; // Standard gold
+                highScoreElement.style.color = "#ffcc00";
             }
-            highScoreElement.style.display = 'block'; // Make element visible
+            highScoreElement.style.display = 'block';
         }
     }
     
-    // Show the game over overlay
     document.getElementById('gameOverMenu').style.display = 'flex';
 }
 
@@ -115,7 +137,13 @@ function showMainMenu() {
 function spawnAsteroid() {
     const size = Math.random() * 30 + 15; 
     const baseSpeed = 120;
-    const speed = baseSpeed / size;
+    let speed = baseSpeed / size;
+    
+    // Scale asteroid velocity based on current level tier (Only applies outside simple endless)
+    if (gameMode === 'level' || gameMode === 'campaign_endless') {
+        speed += (currentLevel * 0.4); 
+    }
+    
     asteroids.push({
         x: Math.random() * (canvas.width - size),
         y: -size,
@@ -144,13 +172,16 @@ function drawUI() {
     ctx.fillStyle = '#fff';
     ctx.font = '16px "Courier New"';
     
-    if (gameMode === 'level') {
+    if (gameMode === 'level' || gameMode === 'campaign_endless') {
         if (distanceToPlanet > 0) {
             ctx.fillText(`Distance to Planet: ${Math.max(0, Math.floor(distanceToPlanet))}m`, 10, 30);
         }
+        // Level Tracker displayed in top-right corner
+        ctx.fillStyle = '#00ffcc';
+        ctx.fillText(`Level: ${currentLevel}`, canvas.width - 100, 30);
     } else if (gameMode === 'endless') {
         ctx.fillText(`Distance: ${Math.floor(endlessDistance)}m`, 10, 30);
-        ctx.fillStyle = '#ffcc00'; // Make highscore pop out a bit in gold layout
+        ctx.fillStyle = '#ffcc00'; 
         ctx.fillText(`Hi-Score: ${endlessHighScore}m`, 10, 55);
     }
 }
@@ -163,13 +194,24 @@ function update() {
     if (player.x < 0) player.x = 0;
     if (player.x + player.width > canvas.width) player.x = canvas.width - player.width;
 
-    // Mode Specific Logic
+    // Mode Specific Progression Logic
     if (gameMode === 'level') {
         if (distanceToPlanet > 0) {
             distanceToPlanet -= 0.5;
         } else {
-            showGameOverScreen(true); // Won level mode
-            return;
+            if (currentLevel < maxCampaignLevel) {
+                nextLevel(); // Automatically bump into next challenge state
+            } else {
+                showGameOverScreen(true); // Hit level 10 goal boundary
+                return;
+            }
+        }
+    } else if (gameMode === 'campaign_endless') {
+        // Runs infinite level progression loops seamlessly
+        if (distanceToPlanet > 0) {
+            distanceToPlanet -= 0.5;
+        } else {
+            nextLevel();
         }
     } else if (gameMode === 'endless') {
         endlessDistance += 0.5; 
@@ -177,7 +219,8 @@ function update() {
 
     // Spawn Asteroids
     spawnTimer++;
-    let shouldSpawn = gameMode === 'endless' || (gameMode === 'level' && distanceToPlanet > 100);
+    let isLevelMode = (gameMode === 'level' || gameMode === 'campaign_endless');
+    let shouldSpawn = gameMode === 'endless' || (isLevelMode && distanceToPlanet > 100);
     
     if (spawnTimer > 30 && shouldSpawn) {
         spawnAsteroid();
@@ -195,7 +238,7 @@ function update() {
             player.y < ast.y + ast.height &&
             player.y + player.height > ast.y) {
                 
-            showGameOverScreen(false); // Triggers game over overlay screen
+            showGameOverScreen(false); 
             return;
         }
 
@@ -229,4 +272,5 @@ gameLoop();
 document.getElementById('levelBtn').addEventListener('click', () => startGame('level'));
 document.getElementById('endlessBtn').addEventListener('click', () => startGame('endless'));
 document.getElementById('tryAgainBtn').addEventListener('click', () => startGame(gameMode));
+document.getElementById('campaignEndlessBtn').addEventListener('click', () => startGame('campaign_endless'));
 document.getElementById('goToMenuBtn').addEventListener('click', showMainMenu);
