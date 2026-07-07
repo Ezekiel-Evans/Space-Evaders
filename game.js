@@ -4,18 +4,22 @@ import { getFirestore, collection, addDoc, getDocs, query, orderBy, limit } from
 
 // !!! REPLACE THIS OBJECT WITH YOUR EXACT CONFIG FROM THE FIREBASE CONSOLE !!!
 const firebaseConfig = {
-  apiKey: "AIzaSyDNWjhBfAYcYHSzXli1nfEToI3nwcHSWO0",
-  authDomain: "space-evaders-fb65d.firebaseapp.com",
-  projectId: "space-evaders-fb65d",
-  storageBucket: "space-evaders-fb65d.firebasestorage.app",
-  messagingSenderId: "620632860696",
-  appId: "1:620632860696:web:c2dbd212aeb394c0667b6d",
-  measurementId: "G-TPJ3DVWDX6"
+    apiKey: "YOUR_API_KEY",
+    authDomain: "YOUR_AUTH_DOMAIN",
+    projectId: "YOUR_PROJECT_ID",
+    storageBucket: "YOUR_STORAGE_BUCKET",
+    messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+    appId: "YOUR_APP_ID"
 };
 
 // Initialize Firebase & Firestore database instance
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
+
+// --- Game Audio Elements ---
+const bgMusic = new Audio('freemusicforvideo-retro-arcade-game-music-504904 (1).mp3');
+bgMusic.loop = true;      // Make the music loop continuously during gameplay
+bgMusic.volume = 0.4;     // Set a moderate background volume (0.0 to 1.0)
 
 // --- Game Variables & States ---
 const canvas = document.getElementById('gameCanvas');
@@ -119,6 +123,10 @@ function startGame(mode) {
     document.getElementById('gameOverMenu').style.display = 'none';
     document.getElementById('campaignEndlessBtn').style.display = 'none';
 
+    // Start playing background music whenever a run starts
+    bgMusic.currentTime = 0; // Reset tracking to the beginning of the track
+    bgMusic.play().catch(e => console.log("Audio play deferred until user gesture layout settles."));
+
     if (mode === 'level') {
         currentLevel = 1;
         distanceToPlanet = 1000;
@@ -166,6 +174,9 @@ async function showGameOverScreen(isVictory = false) {
     gameState = 'GAMEOVER';
     gameOver = true;
     
+    // Halt the background audio tracking immediately on state changes
+    bgMusic.pause();
+
     const titleElement = document.getElementById('gameOverTitle');
     const scoreElement = document.getElementById('gameOverScore');
     const highScoreElement = document.getElementById('gameOverHighScore');
@@ -211,6 +222,8 @@ async function showGameOverScreen(isVictory = false) {
 
 function showMainMenu() {
     gameState = 'MENU';
+    // Ensure music is off if returning to menu
+    bgMusic.pause();
     document.getElementById('mainMenu').style.display = 'flex';
     document.getElementById('gameOverMenu').style.display = 'none';
     loadLeaderboard(); 
@@ -271,6 +284,7 @@ function drawPlayer() {
     ctx.fillRect(player.x + 20, player.y + 20, 10, 10);
 }
 
+// Make sure your config variables are applied inside firebaseConfig at the top!
 function drawAsteroids() {
     ctx.fillStyle = '#ff5555';
     asteroids.forEach(ast => {
