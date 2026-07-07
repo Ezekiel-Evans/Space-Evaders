@@ -1,0 +1,18 @@
+body {
+    margin: 0;
+    background-color: #050510;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    overflow: hidden;
+    font-family: 'Courier New', Courier, monospace;
+}
+
+canvas {
+    border: 4px solid #fff;
+    background-color: #000;
+    /* This rule keeps the 8-bit pixel art sharp if scaling */
+    image-rendering: pixelated; 
+    box-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
+}
