@@ -31,13 +31,15 @@ document.addEventListener('keyup', (e) => {
 });
 
 function spawnAsteroid() {
-    const size = Math.random() * 20 + 15; // 8-bit chunks
+    const size = Math.random() * 30 + 15; // 8-bit chunks
+    const baseSpeed = 120;
+    const speed = baseSpeed/size
     asteroids.push({
         x: Math.random() * (canvas.width - size),
         y: -size,
         width: size,
         height: size,
-        speed: Math.random() * 3 + 2
+        speed: speed
     });
 }
 
