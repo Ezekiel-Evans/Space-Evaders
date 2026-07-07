@@ -7,8 +7,8 @@ let gameMode = '';      // 'level' or 'endless'
 let gameOver = false;
 
 // Mode Tracking variables
-let distanceToPlanet = 1000; // Goal distance for level mode
-let endlessDistance = 0;     // Score tracker for endless mode
+let distanceToPlanet = 1000; 
+let endlessDistance = 0;     
 
 // 8-Bit Spaceship
 const player = {
@@ -35,13 +35,17 @@ document.addEventListener('keyup', (e) => {
     if (['ArrowLeft', 'a', 'ArrowRight', 'd'].includes(e.key)) player.dx = 0;
 });
 
-// Function called by HTML Buttons
 function startGame(mode) {
     gameMode = mode;
     gameState = 'PLAYING';
     gameOver = false;
     asteroids = [];
     spawnTimer = 0;
+    
+    // Reset player position
+    player.x = canvas.width / 2 - 15;
+    player.y = canvas.height - 60;
+    player.dx = 0;
     
     // Reset values depending on mode
     if (mode === 'level') {
@@ -50,8 +54,41 @@ function startGame(mode) {
         endlessDistance = 0;
     }
     
-    // Hide the HTML menu overlay
+    // Hide all menus
     document.getElementById('mainMenu').style.display = 'none';
+    document.getElementById('gameOverMenu').style.display = 'none';
+}
+
+function showGameOverScreen(isVictory = false) {
+    gameState = 'GAMEOVER';
+    gameOver = true;
+    
+    const titleElement = document.getElementById('gameOverTitle');
+    const scoreElement = document.getElementById('gameOverScore');
+    
+    // Customize text based on whether they won or crashed
+    if (isVictory) {
+        titleElement.innerText = "VICTORY!";
+        titleElement.style.color = "#00ffcc";
+        scoreElement.innerText = "You safely reached the planet!";
+    } else {
+        titleElement.innerText = "BOOM! CRASHED";
+        titleElement.style.color = "#ff5555";
+        
+        let finalScore = gameMode === 'level' 
+            ? Math.floor(1000 - distanceToPlanet) 
+            : Math.floor(endlessDistance);
+        scoreElement.innerText = `Final Distance: ${finalScore}m`;
+    }
+    
+    // Show the game over overlay
+    document.getElementById('gameOverMenu').style.display = 'flex';
+}
+
+function showMainMenu() {
+    gameState = 'MENU';
+    document.getElementById('mainMenu').style.display = 'flex';
+    document.getElementById('gameOverMenu').style.display = 'none';
 }
 
 function spawnAsteroid() {
@@ -89,10 +126,6 @@ function drawUI() {
     if (gameMode === 'level') {
         if (distanceToPlanet > 0) {
             ctx.fillText(`Distance to Planet: ${Math.max(0, Math.floor(distanceToPlanet))}m`, 10, 30);
-        } else {
-            ctx.fillStyle = '#00ffcc';
-            ctx.fillText("YOU REACHED THE PLANET!", canvas.width / 2 - 110, canvas.height / 2);
-            gameOver = true;
         }
     } else if (gameMode === 'endless') {
         ctx.fillText(`Distance Traveled: ${Math.floor(endlessDistance)}m`, 10, 30);
@@ -100,7 +133,7 @@ function drawUI() {
 }
 
 function update() {
-    if (gameState !== 'PLAYING' || gameOver) return;
+    if (gameState !== 'PLAYING') return;
 
     // Move Player & Keep in bounds
     player.x += player.dx;
@@ -111,12 +144,15 @@ function update() {
     if (gameMode === 'level') {
         if (distanceToPlanet > 0) {
             distanceToPlanet -= 0.5;
+        } else {
+            showGameOverScreen(true); // Won level mode
+            return;
         }
     } else if (gameMode === 'endless') {
-        endlessDistance += 0.5; // Always increases
+        endlessDistance += 0.5; 
     }
 
-    // Spawn Asteroids (Endless spawns forever, Level stops spawning near the end)
+    // Spawn Asteroids
     spawnTimer++;
     let shouldSpawn = gameMode === 'endless' || (gameMode === 'level' && distanceToPlanet > 100);
     
@@ -136,12 +172,8 @@ function update() {
             player.y < ast.y + ast.height &&
             player.y + player.height > ast.y) {
                 
-            gameOver = true;
-            gameState = 'MENU';
-            alert(`Boom! Ship exploded. \nFinal Score: ${gameMode === 'level' ? Math.floor(1000 - distanceToPlanet) + 'm' : Math.floor(endlessDistance) + 'm'}`);
-            
-            // Show menu overlay again instead of forcing reload
-            document.getElementById('mainMenu').style.display = 'flex';
+            showGameOverScreen(false); // Lost
+            return;
         }
 
         // Remove off-screen asteroids
@@ -167,8 +199,11 @@ function gameLoop() {
     requestAnimationFrame(gameLoop);
 }
 
-// Start Loop (will wait in MENU state until button click)
+// Start Loop
 gameLoop();
-// Add this right at the very bottom of game.js, after gameLoop() has been called
+
+// --- Event Listeners for HTML UI Elements ---
 document.getElementById('levelBtn').addEventListener('click', () => startGame('level'));
 document.getElementById('endlessBtn').addEventListener('click', () => startGame('endless'));
+document.getElementById('tryAgainBtn').addEventListener('click', () => startGame(gameMode));
+document.getElementById('goToMenuBtn').addEventListener('click', showMainMenu);
