@@ -4,15 +4,15 @@ import { getFirestore, collection, addDoc, getDocs, query, orderBy, limit } from
 
 // !!! REPLACE THIS OBJECT WITH YOUR EXACT CONFIG FROM THE FIREBASE CONSOLE !!!
 const firebaseConfig = {
-  apiKey: "AIzaSyDNWjhBfAYcYHSzXli1nfEToI3nwcHSWO0",
-  authDomain: "space-evaders-fb65d.firebaseapp.com",
-  projectId: "space-evaders-fb65d",
-  storageBucket: "space-evaders-fb65d.firebasestorage.app",
-  messagingSenderId: "620632860696",
-  appId: "1:620632860696:web:c2dbd212aeb394c0667b6d",
-  measurementId: "G-TPJ3DVWDX6"
+    apiKey: "YOUR_API_KEY",
+    authDomain: "YOUR_AUTH_DOMAIN",
+    projectId: "YOUR_PROJECT_ID",
+    storageBucket: "YOUR_STORAGE_BUCKET",
+    messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+    appId: "YOUR_APP_ID"
 };
 
+// Initialize Firebase & Firestore database instance
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
@@ -59,10 +59,11 @@ document.addEventListener('keyup', (e) => {
 
 // --- Firebase Leaderboard Functions ---
 
-// Fetch Top 5 Endless Scores from Firebase
+// 1. Fetch Top 5 High Scores from Firebase and inject into HTML
 async function loadLeaderboard() {
     try {
         const scoresRef = collection(db, "leaderboard");
+        // Query options: Sort by distance descending, limit to top 5 entries
         const q = query(scoresRef, orderBy("distance", "desc"), limit(5));
         const querySnapshot = await getDocs(q);
         
@@ -77,6 +78,7 @@ async function loadLeaderboard() {
 
         if (htmlContent === "") htmlContent = "No high scores yet. Be the first!";
         
+        // Update both UI leaderboard panels
         document.getElementById('menuLeaderboard').innerHTML = htmlContent;
         document.getElementById('gameOverLeaderboard').innerHTML = htmlContent;
     } catch (error) {
@@ -85,7 +87,7 @@ async function loadLeaderboard() {
     }
 }
 
-// Upload Endless score to Firestore
+// 2. Upload score to Firestore database
 async function saveOnlineScore(score) {
     const playerName = prompt("New High Score! Enter your name for the global leaderboard (Max 10 chars):");
     const cleanName = playerName ? playerName.substring(0, 10).toUpperCase() : "ANONYMOUS";
@@ -96,9 +98,10 @@ async function saveOnlineScore(score) {
             distance: score,
             timestamp: new Date()
         });
+        // Reload leaderboard automatically after sending data
         loadLeaderboard();
     } catch (e) {
-        console.error("Error adding score: ", e);
+        console.error("Error adding document: ", e);
     }
 }
 
@@ -170,6 +173,7 @@ async function showGameOverScreen(isVictory = false) {
     const highScoreElement = document.getElementById('gameOverHighScore');
     const campaignEndlessBtn = document.getElementById('campaignEndlessBtn');
     
+    // Always trigger a refresh to show the most recent top scores
     loadLeaderboard();
 
     if (isVictory) {
@@ -190,12 +194,14 @@ async function showGameOverScreen(isVictory = false) {
             let finalScore = Math.floor(endlessDistance);
             scoreElement.innerText = `Final Distance: ${finalScore}m`;
             
+            // Local score tracking
             if (finalScore > endlessHighScore) {
                 endlessHighScore = finalScore;
                 localStorage.setItem('spaceDodgerHighScore', endlessHighScore);
                 highScoreElement.innerText = `NEW HIGH SCORE: ${endlessHighScore}m!`;
                 highScoreElement.style.color = "#00ffcc";
                 
+                // Trigger online Firebase upload if you break your personal local record!
                 await saveOnlineScore(finalScore);
             } else {
                 highScoreElement.innerText = `High Score: ${endlessHighScore}m`;
@@ -212,7 +218,7 @@ function showMainMenu() {
     gameState = 'MENU';
     document.getElementById('mainMenu').style.display = 'flex';
     document.getElementById('gameOverMenu').style.display = 'none';
-    loadLeaderboard(); 
+    loadLeaderboard(); // Load fresh database entries on returning to menu
 }
 
 function spawnAsteroid() {
@@ -241,7 +247,6 @@ function drawPlayer() {
     ctx.fillRect(player.x + 20, player.y + 20, 10, 10);
 }
 
-// Make sure your config variables are applied inside firebaseConfig at the top!
 function drawAsteroids() {
     ctx.fillStyle = '#ff5555';
     asteroids.forEach(ast => {
@@ -347,6 +352,7 @@ function gameLoop() {
     requestAnimationFrame(gameLoop);
 }
 
+// Start game loop and initial data pull
 gameLoop();
 loadLeaderboard();
 
