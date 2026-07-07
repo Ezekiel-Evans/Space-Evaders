@@ -13,10 +13,10 @@
         <canvas id="gameCanvas" width="400" height="600" style="background: #000; position: absolute; top: 0; left: 0; z-index: 1;"></canvas>
         
         <div id="mainMenu" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; background: rgba(0,0,0,0.85); font-family: 'Courier New', monospace; color: white; z-index: 2;">
-            <h1 style="color: #00ffcc; margin-bottom: 40px; font-size: 28px;">SPACE ESCAPE</h1>
+            <h1 style="color: #00ffcc; margin-bottom: 20px; font-size: 28px;">SPACE ESCAPE</h1>
             
-            <button id="levelBtn" style="padding: 10px 20px; margin: 10px; background: #00ffcc; border: none; font-family: 'Courier New'; font-weight: bold; cursor: pointer; width: 200px;">LEVEL MODE</button>
-            <button id="endlessBtn" style="padding: 10px 20px; margin: 10px; background: #ff5555; border: none; font-family: 'Courier New'; font-weight: bold; cursor: pointer; width: 200px; color: white;">ENDLESS MODE</button>
+            <button id="levelBtn" style="padding: 10px 20px; margin: 5px; background: #00ffcc; border: none; font-family: 'Courier New'; font-weight: bold; cursor: pointer; width: 200px;">LEVEL MODE</button>
+            <button id="endlessBtn" style="padding: 10px 20px; margin: 5px; background: #ff5555; border: none; font-family: 'Courier New'; font-weight: bold; cursor: pointer; width: 200px; color: white;">ENDLESS MODE</button>
             
             <div style="margin-top: 30px; text-align: center; width: 80%;">
                 <h3 style="color: #ffcc00; font-size: 16px; margin-bottom: 10px;">GLOBAL TOP 5 (ENDLESS)</h3>
@@ -34,5 +34,13 @@
                 <div id="gameOverLeaderboard" style="font-size: 14px; line-height: 1.5; color: #aaa;">Loading global scores...</div>
             </div>
 
-            <button id="tryAgainBtn" style="padding: 10px 20px; margin: 10px; background: #00ffcc; border: none; font-family: 'Courier New'; font-weight: bold; cursor: pointer; width: 200px;">TRY AGAIN</button>
-            <button id="campaignEndlessBtn" style="padding: 10
+            <button id="tryAgainBtn" style="padding: 10px 20px; margin: 5px; background: #00ffcc; border: none; font-family: 'Courier New'; font-weight: bold; cursor: pointer; width: 200px;">TRY AGAIN</button>
+            <button id="campaignEndlessBtn" style="padding: 10px 20px; margin: 5px; background: #ff5555; border: none; font-family: 'Courier New'; font-weight: bold; cursor: pointer; width: 200px; color: white; display: none;">ENDLESS LEVELS</button>
+            <button id="goToMenuBtn" style="padding: 10px 20px; margin: 5px; background: #888; border: none; font-family: 'Courier New'; font-weight: bold; cursor: pointer; width: 200px; color: white;">MAIN MENU</button>
+        </div>
+        
+    </div>
+
+    <script type="module" src="game.js"></script>
+</body>
+</html>
