@@ -169,3 +169,6 @@ function gameLoop() {
 
 // Start Loop (will wait in MENU state until button click)
 gameLoop();
+// Add this right at the very bottom of game.js, after gameLoop() has been called
+document.getElementById('levelBtn').addEventListener('click', () => startGame('level'));
+document.getElementById('endlessBtn').addEventListener('click', () => startGame('endless'));
