@@ -4,12 +4,13 @@ import { getFirestore, collection, addDoc, getDocs, query, orderBy, limit } from
 
 // !!! REPLACE THIS OBJECT WITH YOUR EXACT CONFIG FROM THE FIREBASE CONSOLE !!!
 const firebaseConfig = {
-    apiKey: "YOUR_API_KEY",
-    authDomain: "YOUR_AUTH_DOMAIN",
-    projectId: "YOUR_PROJECT_ID",
-    storageBucket: "YOUR_STORAGE_BUCKET",
-    messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-    appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyDNWjhBfAYcYHSzXli1nfEToI3nwcHSWO0",
+  authDomain: "space-evaders-fb65d.firebaseapp.com",
+  projectId: "space-evaders-fb65d",
+  storageBucket: "space-evaders-fb65d.firebasestorage.app",
+  messagingSenderId: "620632860696",
+  appId: "1:620632860696:web:c2dbd212aeb394c0667b6d",
+  measurementId: "G-TPJ3DVWDX6"
 };
 
 const app = initializeApp(firebaseConfig);
